@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manus-Recon-Elite | Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #121212; color: #e0e0e0; }
+        .card { background-color: #1e1e1e; border: 1px solid #333; color: #e0e0e0; }
+        .btn-primary { background-color: #6200ee; border: none; }
+        .btn-primary:hover { background-color: #3700b3; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-12 text-center mb-4">
+                <h1 class="display-4">🛡️ Manus-Recon-Elite</h1>
+                <p class="lead">Versão Python Nativa para Bug Bounty Hunters</p>
+            </div>
+        </div>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card p-4 shadow">
+                    <h3>Iniciar Novo Recon</h3>
+                    <div class="mb-3">
+                        <label for="target" class="form-label">Alvo (ex: exemplo.com)</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="target" placeholder="exemplo.com">
+                    </div>
+                    <button onclick="startScan()" class="btn btn-primary w-100">Lançar Ataque</button>
+                    <div id="status" class="mt-3 text-center"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="card p-4 shadow">
+                    <h3>Funcionalidades Ativas</h3>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Enumeração de Subdomínios (Subfinder)</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Probing HTTP (Httpx)</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ 403 Bypass Automático</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Análise de JS & Endpoints (Katana)</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Visual Recon (Gowitness)</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Scanner de Vulnerabilidades (Nuclei)</li>
+                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Notificações Discord (Medium+)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function startScan() {
+            const target = document.getElementById('target').value;
+            const statusDiv = document.getElementById('status');
+            if (!target) {
+                statusDiv.innerHTML = '<span class="text-danger">Por favor, insira um alvo.</span>';
+                return;
+            }
+            statusDiv.innerHTML = '<span class="text-info">Iniciando scan... Verifique seu Discord!</span>';
+            fetch(`/start?target=${target}`)
+                .then(response => response.json())
+                .then(data => {
+                    statusDiv.innerHTML = `<span class="text-success">${data.message}</span>`;
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = '<span class="text-danger">Erro ao iniciar scan.</span>';
+                });
+        }
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ engine = ReconEngine(discord_webhook=os.getenv("DISCORD_WEBHOOK_URL"))
 
 @app.route('/')
 def index():
-    return "<h1>Manus-Recon-Elite: Python Edition</h1><p>API rodando no localhost. Use /start?target=exemplo.com para iniciar.</p>"
+    return render_template('index.html')
 
 @app.route('/start')
 def start_scan():

@@ -3,6 +3,7 @@ import json
 import os
 import requests
 from datetime import datetime
+from core.bypass403 import Bypass403
 
 class ReconEngine:
     def __init__(self, discord_webhook=None):
@@ -54,7 +55,27 @@ class ReconEngine:
         print(f"[*] Probing alive hosts...")
         self.run_command(f"httpx -l {self.results_dir}/subdomains.txt -o {self.results_dir}/alive.txt -silent")
         
-        # 3. Vulnerability Scanning (Nuclei)
+        # 3. 403 Bypass Testing
+        print(f"[*] Checking for 403 Forbidden endpoints to bypass...")
+        with open(f"{self.results_dir}/alive.txt", "r") as f:
+            for line in f:
+                url = line.strip()
+                # Se o status for 403 (precisaria de um check prévio, mas vamos testar em todos os 'vivos' por segurança)
+                bypasser = Bypass403(url)
+                bypass_results = bypasser.run()
+                for res in bypass_results:
+                    self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`\nPayload: `{res['payload']}`", "HIGH")
+
+        # 4. JS Analysis & Secret Finding
+        print(f"[*] Extracting endpoints and secrets from JS files...")
+        self.run_command(f"katana -l {self.results_dir}/alive.txt -jc -kf all -o {self.results_dir}/js_endpoints.txt -silent")
+
+        # 5. Visual Recon (Screenshots)
+        print(f"[*] Taking screenshots of alive hosts...")
+        os.makedirs("data/screenshots", exist_ok=True)
+        self.run_command(f"gowitness file -f {self.results_dir}/alive.txt --screenshot-path data/screenshots")
+
+        # 6. Vulnerability Scanning (Nuclei)
         print(f"[*] Running Nuclei scans...")
         stdout, _ = self.run_command(f"nuclei -l {self.results_dir}/alive.txt -json -silent")
         

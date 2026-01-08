@@ -2,93 +2,132 @@ import subprocess
 import json
 import os
 import requests
+import time
 from datetime import datetime
 from core.bypass403 import Bypass403
 
 class ReconEngine:
-    def __init__(self, discord_webhook=None):
+    def __init__(self, discord_webhook="https://discord.com/api/webhooks/1456906799553839157/jGQmsTAx82bZnzu32QQRwcTMuqtTjiiuQPtS80XlhY2GpS2vXm0MclJ7oqdXP7lxsNGT"):
         self.discord_webhook = discord_webhook
         self.results_dir = "data/results"
+        self.bin_path = "/home/ubuntu/go/bin"
         os.makedirs(self.results_dir, exist_ok=True)
+        # Garantir que o path do Go esteja no ambiente
+        os.environ["PATH"] += os.pathsep + self.bin_path
 
     def notify_discord(self, message, severity="INFO"):
         if not self.discord_webhook:
             return
         
         colors = {
-            "CRITICAL": 15158332,
-            "HIGH": 15105536,
-            "MEDIUM": 15844367,
-            "LOW": 3447003,
-            "INFO": 3447003
+            "CRITICAL": 15158332, # Vermelho
+            "HIGH": 15105536,     # Laranja
+            "MEDIUM": 15844367,   # Amarelo
+            "LOW": 3447003,       # Azul
+            "INFO": 9807270       # Cinza
         }
         
         payload = {
             "embeds": [{
-                "title": f"🛡️ Manus-Recon-Elite: {severity}",
+                "title": f"🛡️ BUG HUNTER ELITE: {severity}",
                 "description": message,
-                "color": colors.get(severity, 3447003),
-                "timestamp": datetime.utcnow().isoformat()
+                "color": colors.get(severity, 9807270),
+                "timestamp": datetime.utcnow().isoformat(),
+                "footer": {"text": "Manus Bug Bounty Automation"}
             }]
         }
         try:
-            requests.post(self.discord_webhook, json=payload)
+            requests.post(self.discord_webhook, json=payload, timeout=10)
         except Exception as e:
             print(f"Error sending notification: {e}")
 
-    def run_command(self, cmd):
+    def run_command(self, cmd, output_file=None):
         try:
+            print(f"[*] Executing: {cmd}")
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate()
+            
+            if output_file and stdout:
+                with open(output_file, "w") as f:
+                    f.write(stdout)
+            
             return stdout, stderr
         except Exception as e:
             return "", str(e)
 
     def start_recon(self, target):
-        self.notify_discord(f"🚀 Iniciando Recon Massivo para: **{target}**", "INFO")
+        start_time = time.time()
+        self.notify_discord(f"🚀 **INICIANDO RECON PROFISSIONAL**\nAlvo: `{target}`", "INFO")
         
-        # 1. Subdomain Enumeration
-        print(f"[*] Enumerating subdomains for {target}...")
-        self.run_command(f"subfinder -d {target} -o {self.results_dir}/subdomains.txt")
+        # --- PASSO 1: RECON (Amass) ---
+        print(f"[*] Enumerating subdomains with Amass for {target}...")
+        subdomains_file = f"{self.results_dir}/subdomains.txt"
+        self.run_command(f"amass enum -d {target} -passive -o {subdomains_file}")
         
-        # 2. HTTP Probing
-        print(f"[*] Probing alive hosts...")
-        self.run_command(f"httpx -l {self.results_dir}/subdomains.txt -o {self.results_dir}/alive.txt -silent")
+        # --- PASSO 2: PROBING (httpx) ---
+        print(f"[*] Probing alive hosts and detecting technologies...")
+        alive_file = f"{self.results_dir}/alive.txt"
+        # httpx com tech detection e status codes
+        stdout, _ = self.run_command(f"httpx -l {subdomains_file} -td -status-code -title -silent", output_file=alive_file)
         
-        # 3. 403 Bypass Testing
-        print(f"[*] Checking for 403 Forbidden endpoints to bypass...")
-        with open(f"{self.results_dir}/alive.txt", "r") as f:
+        # Notificar hosts vivos encontrados
+        alive_count = len(stdout.splitlines())
+        self.notify_discord(f"🌐 **Hosts Vivos Encontrados:** `{alive_count}`", "INFO")
+
+        # --- PASSO 3: DISCOVERY (Katana & Gau) ---
+        print(f"[*] Exploring content with Katana and Gau...")
+        urls_file = f"{self.results_dir}/urls.txt"
+        # Katana para crawling ativo
+        self.run_command(f"katana -l {alive_file} -jc -kf all -d 3 -silent -o {self.results_dir}/katana_urls.txt")
+        # Gau para histórico passivo
+        self.run_command(f"gau {target} --subs --o {self.results_dir}/gau_urls.txt")
+        
+        # Merge e Unique URLs
+        self.run_command(f"cat {self.results_dir}/katana_urls.txt {self.results_dir}/gau_urls.txt | sort -u > {urls_file}")
+        
+        # --- PASSO 4: ANALYSIS & VULNERABILITIES ---
+        
+        # 4.1 JS Analysis (Secrets & Endpoints)
+        print(f"[*] Analyzing JS files for secrets...")
+        js_files = f"{self.results_dir}/js_links.txt"
+        self.run_command(f"grep '\.js' {urls_file} > {js_files}")
+        # Aqui poderíamos integrar uma ferramenta específica de JS, mas o Nuclei já faz muito disso.
+
+        # 4.2 403 Bypass
+        print(f"[*] Testing 403 Bypasses...")
+        with open(alive_file, "r") as f:
             for line in f:
-                url = line.strip()
-                # Se o status for 403 (precisaria de um check prévio, mas vamos testar em todos os 'vivos' por segurança)
-                bypasser = Bypass403(url)
-                bypass_results = bypasser.run()
-                for res in bypass_results:
-                    self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`\nPayload: `{res['payload']}`", "HIGH")
+                if "403" in line:
+                    url = line.split()[0]
+                    bypasser = Bypass403(url)
+                    results = bypasser.run()
+                    for res in results:
+                        self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`\nPayload: `{res['payload']}`", "HIGH")
 
-        # 4. JS Analysis & Secret Finding
-        print(f"[*] Extracting endpoints and secrets from JS files...")
-        self.run_command(f"katana -l {self.results_dir}/alive.txt -jc -kf all -o {self.results_dir}/js_endpoints.txt -silent")
-
-        # 5. Visual Recon (Screenshots)
-        print(f"[*] Taking screenshots of alive hosts...")
-        os.makedirs("data/screenshots", exist_ok=True)
-        self.run_command(f"gowitness file -f {self.results_dir}/alive.txt --screenshot-path data/screenshots")
-
-        # 6. Vulnerability Scanning (Nuclei)
-        print(f"[*] Running Nuclei scans...")
-        stdout, _ = self.run_command(f"nuclei -l {self.results_dir}/alive.txt -json -silent")
+        # 4.3 Nuclei (Vulnerability Scanning)
+        print(f"[*] Running Nuclei for Low/Medium/High/Critical vulnerabilities...")
+        # Rodando nuclei com foco em vulnerabilidades reais, excluindo info/headers chatos
+        nuclei_cmd = f"nuclei -l {alive_file} -severity low,medium,high,critical -json -silent"
+        stdout, _ = self.run_command(nuclei_cmd)
         
-        # Process Nuclei Results for Notifications
         for line in stdout.splitlines():
             try:
                 vuln = json.loads(line)
-                severity = vuln.get("info", {}).get("severity", "INFO").upper()
-                if severity in ["CRITICAL", "HIGH", "MEDIUM"]:
-                    name = vuln.get("info", {}).get("name")
-                    matched = vuln.get("matched-at")
-                    self.notify_discord(f"🚨 **{name}** detectado em `{matched}`", severity)
+                info = vuln.get("info", {})
+                severity = info.get("severity", "INFO").upper()
+                name = info.get("name")
+                matched = vuln.get("matched-at")
+                description = info.get("description", "Sem descrição disponível.")
+                
+                # Filtro para evitar "headers" chatos no Low
+                if severity == "LOW" and any(x in name.lower() for x in ["header", "missing", "cookie"]):
+                    continue
+                
+                msg = f"🚨 **VULNERABILIDADE DETECTADA!**\n**Nome:** `{name}`\n**Alvo:** `{matched}`\n**Descrição:** {description}"
+                self.notify_discord(msg, severity)
             except:
                 continue
 
-        self.notify_discord(f"✅ Recon finalizado para: **{target}**", "INFO")
+        end_time = time.time()
+        duration = round((end_time - start_time) / 60, 2)
+        self.notify_discord(f"✅ **RECON FINALIZADO**\nAlvo: `{target}`\nDuração: `{duration} min`", "INFO")

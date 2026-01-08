@@ -14,6 +14,8 @@ go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install -v github.com/projectdiscovery/katana/cmd/katana@latest
+go install -v github.com/owasp-amass/amass/v4/...@latest
+go install -v github.com/lc/gau/v2/cmd/gau@latest
 
 # Mover binários do Go para o PATH
 sudo cp ~/go/bin/* /usr/local/bin/

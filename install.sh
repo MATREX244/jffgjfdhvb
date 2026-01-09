@@ -1,37 +1,46 @@
 #!/bin/bash
 
-echo "🛠️ Instalando Dependências do BUG HUNTER ELITE (Nativo Kali)..."
+echo "🛠️ Instalando Dependências do BUG HUNTER ELITE (Modo Ultra Rápido)..."
 
-# 1. Atualizar Sistema (Removendo repositórios problemáticos)
+# 1. Limpeza de Repositórios e Atualização
 sudo sed -i '/docker/d' /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null
 sudo apt update
 
-# 2. Instalar Python e Go
-sudo apt install -y python3 python3-pip golang git curl python3-venv
+# 2. Instalar Dependências Básicas
+sudo apt install -y python3 python3-pip git curl wget unzip
 
-# 3. Instalar Ferramentas via Go (Usando binários pré-compilados quando possível ou garantindo PATH)
-echo "🚀 Instalando ferramentas de Recon..."
-export GOPATH=$HOME/go
-export PATH=$PATH:$GOPATH/bin
+# 3. Instalar Ferramentas da ProjectDiscovery via PDTM (Binários Oficiais)
+echo "🚀 Baixando binários oficiais (Sem compilação)..."
+curl -sL https://raw.githubusercontent.com/projectdiscovery/pdtm/main/install.sh | bash
+source ~/.bashrc
+export PATH=$PATH:$HOME/.pdtm/go/bin
 
-# Função para instalar ferramentas com segurança
-install_go_tool() {
-    echo "[*] Instalando $1..."
-    go install -v $2@latest
-}
+# Instalar ferramentas via pdtm
+~/.pdtm/go/bin/pdtm -i subfinder,httpx,nuclei,katana
 
-install_go_tool "subfinder" "github.com/projectdiscovery/subfinder/v2/cmd/subfinder"
-install_go_tool "httpx" "github.com/projectdiscovery/httpx/cmd/httpx"
-install_go_tool "nuclei" "github.com/projectdiscovery/nuclei/v3/cmd/nuclei"
-install_go_tool "katana" "github.com/projectdiscovery/katana/cmd/katana"
-install_go_tool "amass" "github.com/owasp-amass/amass/v4/...@latest"
-install_go_tool "gau" "github.com/lc/gau/v2/cmd/gau"
+# 4. Instalar Amass e Gau (Binários Oficiais)
+echo "📦 Instalando Amass e Gau..."
 
-# Mover binários do Go para o PATH do sistema para facilitar o uso
-sudo cp $HOME/go/bin/* /usr/local/bin/ 2>/dev/null
+# Amass
+AMASS_VER="v4.2.0"
+wget https://github.com/owasp-amass/amass/releases/download/${AMASS_VER}/amass_linux_amd64.zip
+unzip amass_linux_amd64.zip
+sudo mv amass_linux_amd64/amass /usr/local/bin/
+rm -rf amass_linux_amd64*
 
-# 4. Instalar dependências Python (Usando --break-system-packages para Kali ou venv)
-echo "📦 Instalando dependências Python..."
-pip3 install flask requests --break-system-packages 2>/dev/null || pip3 install flask requests
+# Gau
+GAU_VER="2.2.1"
+wget https://github.com/lc/gau/releases/download/v${GAU_VER}/gau_${GAU_VER}_linux_amd64.tar.gz
+tar -xvf gau_${GAU_VER}_linux_amd64.tar.gz
+sudo mv gau /usr/local/bin/
+rm gau_${GAU_VER}_linux_amd64.tar.gz
 
-echo "✅ Instalação concluída! Use 'python3 web/app.py' para iniciar o painel."
+# Mover binários do pdtm para /usr/local/bin para garantir acesso global
+sudo cp $HOME/.pdtm/go/bin/* /usr/local/bin/ 2>/dev/null
+
+# 5. Instalar dependências Python
+echo "🐍 Instalando dependências Python..."
+pip3 install flask requests --break-system-packages --quiet 2>/dev/null || pip3 install flask requests --quiet
+
+echo "✅ TUDO PRONTO! O erro de compilação foi eliminado."
+echo "🚀 Use 'python3 web/app.py' para iniciar."

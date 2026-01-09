@@ -3,73 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manus-Recon-Elite | Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>BUG HUNTER ELITE - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #121212; color: #e0e0e0; }
-        .card { background-color: #1e1e1e; border: 1px solid #333; color: #e0e0e0; }
-        .btn-primary { background-color: #6200ee; border: none; }
-        .btn-primary:hover { background-color: #3700b3; }
+        body { background-color: #0f172a; color: #e2e8f0; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .terminal { background-color: #000; font-family: 'Courier New', Courier, monospace; padding: 10px; border-radius: 5px; height: 400px; overflow-y: auto; }
+        .status-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-12 text-center mb-4">
-                <h1 class="display-4">🛡️ Manus-Recon-Elite</h1>
-                <p class="lead">Versão Python Nativa para Bug Bounty Hunters</p>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-500"><i class="fas fa-shield-alt mr-2"></i>BUG HUNTER ELITE</h1>
+                <p class="text-slate-400">Automação Profissional de Recon & Vulnerabilidades</p>
+            </div>
+            <div id="global-status" class="flex items-center space-x-2 text-sm">
+                <span class="w-3 h-3 bg-green-500 rounded-full status-pulse"></span>
+                <span>Sistema Online</span>
             </div>
         </div>
-        
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card p-4 shadow">
-                    <h3>Iniciar Novo Recon</h3>
-                    <div class="mb-3">
-                        <label for="target" class="form-label">Alvo (ex: exemplo.com)</label>
-                        <input type="text" class="form-control bg-dark text-white border-secondary" id="target" placeholder="exemplo.com">
-                    </div>
-                    <button onclick="startScan()" class="btn btn-primary w-100">Lançar Ataque</button>
-                    <div id="status" class="mt-3 text-center"></div>
+
+        <!-- Control Panel -->
+        <div class="bg-slate-800 p-6 rounded-xl shadow-lg mb-8">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="target" placeholder="Ex: google.com" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="startScan()" id="btn-start" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-lg font-bold transition-all">
+                    <i class="fas fa-play mr-2"></i>INICIAR RECON
+                </button>
+                <button onclick="stopScan()" id="btn-stop" class="bg-red-600 hover:bg-red-700 text-white px-8 py-2 rounded-lg font-bold transition-all hidden">
+                    <i class="fas fa-stop mr-2"></i>PARAR
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="flex space-x-4 mb-4 border-b border-slate-700">
+            <button onclick="showTab('tab-logs')" class="tab-btn px-4 py-2 border-b-2 border-blue-500 text-blue-500 font-bold" id="btn-tab-logs">LOGS EM TEMPO REAL</button>
+            <button onclick="showTab('tab-subdomains')" class="tab-btn px-4 py-2 text-slate-400 hover:text-white" id="btn-tab-subdomains">SUBDOMÍNIOS</button>
+            <button onclick="showTab('tab-urls')" class="tab-btn px-4 py-2 text-slate-400 hover:text-white" id="btn-tab-urls">URLS & ENDPOINTS</button>
+            <button onclick="showTab('tab-vulns')" class="tab-btn px-4 py-2 text-slate-400 hover:text-white" id="btn-tab-vulns">VULNERABILIDADES</button>
+        </div>
+
+        <!-- Tabs Content -->
+        <div id="tab-logs" class="tab-content active">
+            <div class="terminal" id="log-output">
+                <div class="text-blue-400">[SYSTEM] Aguardando comando...</div>
+            </div>
+        </div>
+
+        <div id="tab-subdomains" class="tab-content">
+            <div class="bg-slate-800 p-4 rounded-lg">
+                <h3 class="text-xl font-bold mb-4">Hosts Vivos Detectados</h3>
+                <div id="subdomains-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm font-mono">
+                    <!-- Preenchido via JS -->
                 </div>
             </div>
         </div>
 
-        <div class="row mt-5">
-            <div class="col-md-12">
-                <div class="card p-4 shadow">
-                    <h3>Funcionalidades Ativas</h3>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Enumeração de Subdomínios (Subfinder)</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Probing HTTP (Httpx)</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ 403 Bypass Automático</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Análise de JS & Endpoints (Katana)</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Visual Recon (Gowitness)</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Scanner de Vulnerabilidades (Nuclei)</li>
-                        <li class="list-group-item bg-transparent text-white border-secondary">✅ Notificações Discord (Medium+)</li>
-                    </ul>
+        <div id="tab-urls" class="tab-content">
+            <div class="bg-slate-800 p-4 rounded-lg">
+                <h3 class="text-xl font-bold mb-4">Endpoints & Arquivos JS</h3>
+                <div id="urls-list" class="max-h-96 overflow-y-auto text-xs font-mono space-y-1">
+                    <!-- Preenchido via JS -->
                 </div>
+            </div>
+        </div>
+
+        <div id="tab-vulns" class="tab-content">
+            <div class="space-y-4" id="vulns-list">
+                <!-- Preenchido via JS -->
             </div>
         </div>
     </div>
 
     <script>
-        function startScan() {
+        let scanInterval;
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-blue-500', 'text-blue-500');
+                b.classList.add('text-slate-400');
+            });
+            document.getElementById(tabId).classList.add('active');
+            const btn = document.getElementById('btn-' + tabId);
+            btn.classList.add('border-blue-500', 'text-blue-500');
+            btn.classList.remove('text-slate-400');
+        }
+
+        async function startScan() {
             const target = document.getElementById('target').value;
-            const statusDiv = document.getElementById('status');
-            if (!target) {
-                statusDiv.innerHTML = '<span class="text-danger">Por favor, insira um alvo.</span>';
-                return;
+            if (!target) return alert('Insira um alvo!');
+
+            document.getElementById('btn-start').classList.add('hidden');
+            document.getElementById('btn-stop').classList.remove('hidden');
+            document.getElementById('log-output').innerHTML = '<div class="text-yellow-400">[INFO] Iniciando processo para ' + target + '...</div>';
+
+            const response = await fetch('/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({target})
+            });
+
+            if (response.ok) {
+                startPolling();
             }
-            statusDiv.innerHTML = '<span class="text-info">Iniciando scan... Verifique seu Discord!</span>';
-            fetch(`/start?target=${target}`)
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.innerHTML = `<span class="text-success">${data.message}</span>`;
-                })
-                .catch(error => {
-                    statusDiv.innerHTML = '<span class="text-danger">Erro ao iniciar scan.</span>';
-                });
+        }
+
+        async function stopScan() {
+            await fetch('/stop', {method: 'POST'});
+            clearInterval(scanInterval);
+            document.getElementById('btn-start').classList.remove('hidden');
+            document.getElementById('btn-stop').classList.add('hidden');
+            document.getElementById('log-output').innerHTML += '<div class="text-red-500">[SYSTEM] Processo interrompido pelo usuário.</div>';
+        }
+
+        function startPolling() {
+            scanInterval = setInterval(async () => {
+                const response = await fetch('/status');
+                const data = await response.json();
+
+                // Atualizar Logs
+                const logDiv = document.getElementById('log-output');
+                logDiv.innerHTML = data.logs.map(log => `<div>${log}</div>`).join('');
+                logDiv.scrollTop = logDiv.scrollHeight;
+
+                // Atualizar Subdomínios
+                document.getElementById('subdomains-list').innerHTML = data.subdomains.map(s => 
+                    `<div class="bg-slate-900 p-2 rounded border border-slate-700 text-green-400">${s}</div>`
+                ).join('');
+
+                // Atualizar URLs
+                document.getElementById('urls-list').innerHTML = data.urls.map(u => 
+                    `<div class="text-slate-300 truncate">${u}</div>`
+                ).join('');
+
+                // Atualizar Vulns
+                document.getElementById('vulns-list').innerHTML = data.vulns.map(v => `
+                    <div class="bg-slate-900 p-4 rounded-lg border-l-4 ${v.severity === 'CRITICAL' ? 'border-red-600' : v.severity === 'HIGH' ? 'border-orange-500' : 'border-yellow-400'}">
+                        <div class="flex justify-between">
+                            <span class="font-bold text-lg">${v.name}</span>
+                            <span class="px-2 py-1 rounded text-xs font-bold ${v.severity === 'CRITICAL' ? 'bg-red-600' : v.severity === 'HIGH' ? 'bg-orange-500' : v.severity === 'MEDIUM' ? 'bg-yellow-500' : 'bg-blue-600'}">${v.severity}</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mt-1">${v.target}</p>
+                    </div>
+                `).join('');
+
+                if (!data.running) {
+                    clearInterval(scanInterval);
+                    document.getElementById('btn-start').classList.remove('hidden');
+                    document.getElementById('btn-stop').classList.add('hidden');
+                }
+            }, 2000);
         }
     </script>
 </body>

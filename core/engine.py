@@ -44,7 +44,7 @@ class ReconEngine:
             return "", "Stopped"
             
         try:
-            print(f"[EXEC] {cmd}")
+            # print(f"[EXEC] {cmd}") # Limpando terminal
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             stdout_list = []
@@ -71,16 +71,18 @@ class ReconEngine:
 
     def start_recon(self, target, scan_data):
         start_time = time.time()
-        print(f"[+] Iniciando Recon Profissional para: {target}")
+        print(f"🚀 Iniciando Recon: {target}")
         self.notify_discord(f"🚀 **INICIANDO RECON PROFISSIONAL**\nAlvo: `{target}`", "INFO")
         
-        # --- PASSO 1: RECON (Amass) ---
-        print("[*] Passo 1: Enumerando subdomínios (Amass)...")
+        # --- PASSO 1: RECON (Subfinder & Assetfinder) ---
+        print("🔍 Buscando subdomínios...")
         subdomains_file = f"{self.results_dir}/subdomains.txt"
-        self.run_command(f"amass enum -d {target} -passive -o {subdomains_file}", scan_data=scan_data)
+        self.run_command(f"subfinder -d {target} -silent > {subdomains_file}", scan_data=scan_data)
+        self.run_command(f"assetfinder --subs-only {target} >> {subdomains_file}", scan_data=scan_data)
+        self.run_command(f"sort -u {subdomains_file} -o {subdomains_file}", scan_data=scan_data)
         
         # --- PASSO 2: PROBING (httpx) ---
-        print("[*] Passo 2: Validando hosts vivos e tecnologias (httpx)...")
+        print("🌐 Validando hosts vivos...")
         alive_file = f"{self.results_dir}/alive.txt"
         stdout, _ = self.run_command(f"httpx -l {subdomains_file} -td -status-code -title -silent", output_file=alive_file, scan_data=scan_data)
         
@@ -90,7 +92,7 @@ class ReconEngine:
         self.notify_discord(f"🌐 **Hosts Vivos Encontrados:** `{len(scan_data['subdomains'])}`", "INFO")
 
         # --- PASSO 3: DISCOVERY (Katana & Gau) ---
-        print("[*] Passo 3: Explorando conteúdo e histórico (Katana & Gau)...")
+        print("📂 Mapeando URLs e endpoints...")
         urls_file = f"{self.results_dir}/urls.txt"
         self.run_command(f"katana -l {alive_file} -jc -kf all -d 3 -silent -o {self.results_dir}/katana_urls.txt", scan_data=scan_data)
         self.run_command(f"gau {target} --subs --o {self.results_dir}/gau_urls.txt", scan_data=scan_data)
@@ -103,7 +105,7 @@ class ReconEngine:
                 scan_data["urls"].append(line.strip())
 
         # --- PASSO 4: VULNERABILIDADES ---
-        print("[*] Passo 4: Varredura de vulnerabilidades (Nuclei)...")
+        print("🛡️ Analisando vulnerabilidades...")
         nuclei_cmd = f"nuclei -l {alive_file} -severity low,medium,high,critical -json -silent"
         stdout, _ = self.run_command(nuclei_cmd, scan_data=scan_data)
         
@@ -133,7 +135,7 @@ class ReconEngine:
                 continue
 
         # 4.2 403 Bypass
-        print("[*] Passo 5: Testando 403 Bypasses...")
+        print("🔓 Testando bypass de 403...")
         with open(alive_file, "r") as f:
             for line in f:
                 if "403" in line:
@@ -149,5 +151,5 @@ class ReconEngine:
                         self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`", "HIGH")
 
         duration = round((time.time() - start_time) / 60, 2)
-        print(f"[+] Recon finalizado em {duration} minutos.")
+        print(f"✅ Finalizado em {duration} min.")
         self.notify_discord(f"✅ **RECON FINALIZADO**\nAlvo: `{target}`\nDuração: `{duration} min`", "INFO")

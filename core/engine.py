@@ -44,112 +44,126 @@ class ReconEngine:
             return "", "Stopped"
             
         try:
-            # print(f"[EXEC] {cmd}") # Limpando terminal
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            print(f"⚙️ Executando: {cmd.split()[0]}")
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             
             stdout_list = []
-            while True:
-                line = process.stdout.readline()
-                if not line and process.poll() is not None:
+            for line in iter(process.stdout.readline, ""):
+                if not scan_data.get("running"):
+                    process.terminate()
                     break
-                if line:
+                
+                line_clean = line.strip()
+                if line_clean:
                     stdout_list.append(line)
-                    if scan_data and not scan_data.get("running"):
-                        process.terminate()
-                        return "".join(stdout_list), "Stopped"
+                    # Enviar progresso real para o painel se for algo relevante
+                    if any(x in line_clean.lower() for x in ["found", "http", "vuln", "target"]):
+                        print(f"  > {line_clean[:100]}")
             
+            process.wait()
             stdout = "".join(stdout_list)
-            _, stderr = process.communicate()
             
             if output_file and stdout:
                 with open(output_file, "w") as f:
                     f.write(stdout)
             
-            return stdout, stderr
+            return stdout, ""
         except Exception as e:
+            print(f"❌ Erro: {str(e)}")
             return "", str(e)
 
     def start_recon(self, target, scan_data):
-        start_time = time.time()
-        print(f"🚀 Iniciando Recon: {target}")
-        self.notify_discord(f"🚀 **INICIANDO RECON PROFISSIONAL**\nAlvo: `{target}`", "INFO")
-        
-        # --- PASSO 1: RECON (Subfinder & Assetfinder) ---
-        print("🔍 Buscando subdomínios...")
-        subdomains_file = f"{self.results_dir}/subdomains.txt"
-        self.run_command(f"subfinder -d {target} -silent > {subdomains_file}", scan_data=scan_data)
-        self.run_command(f"assetfinder --subs-only {target} >> {subdomains_file}", scan_data=scan_data)
-        self.run_command(f"sort -u {subdomains_file} -o {subdomains_file}", scan_data=scan_data)
-        
-        # --- PASSO 2: PROBING (httpx) ---
-        print("🌐 Validando hosts vivos...")
-        alive_file = f"{self.results_dir}/alive.txt"
-        stdout, _ = self.run_command(f"httpx -l {subdomains_file} -td -status-code -title -silent", output_file=alive_file, scan_data=scan_data)
-        
-        for line in stdout.splitlines():
-            scan_data["subdomains"].append(line)
-        
-        self.notify_discord(f"🌐 **Hosts Vivos Encontrados:** `{len(scan_data['subdomains'])}`", "INFO")
-
-        # --- PASSO 3: DISCOVERY (Katana & Gau) ---
-        print("📂 Mapeando URLs e endpoints...")
-        urls_file = f"{self.results_dir}/urls.txt"
-        self.run_command(f"katana -l {alive_file} -jc -kf all -d 3 -silent -o {self.results_dir}/katana_urls.txt", scan_data=scan_data)
-        self.run_command(f"gau {target} --subs --o {self.results_dir}/gau_urls.txt", scan_data=scan_data)
-        
-        self.run_command(f"cat {self.results_dir}/katana_urls.txt {self.results_dir}/gau_urls.txt | sort -u > {urls_file}", scan_data=scan_data)
-        
-        with open(urls_file, "r") as f:
-            for i, line in enumerate(f):
-                if i > 500: break # Limite para o painel não travar
-                scan_data["urls"].append(line.strip())
-
-        # --- PASSO 4: VULNERABILIDADES ---
-        print("🛡️ Analisando vulnerabilidades...")
-        nuclei_cmd = f"nuclei -l {alive_file} -severity low,medium,high,critical -json -silent"
-        stdout, _ = self.run_command(nuclei_cmd, scan_data=scan_data)
-        
-        for line in stdout.splitlines():
-            try:
-                vuln = json.loads(line)
-                info = vuln.get("info", {})
-                severity = info.get("severity", "INFO").upper()
-                name = info.get("name")
-                matched = vuln.get("matched-at")
+        while True:
+            if not scan_data.get("running"):
+                print("🛑 Recon interrompido pelo usuário.")
+                break
                 
-                # Filtro Inteligente para LOW (Ignorar headers chatos)
-                if severity == "LOW":
-                    ignore_keywords = ["header", "missing", "cookie", "secure", "httponly", "x-content", "nosniff"]
-                    if any(x in name.lower() for x in ignore_keywords):
-                        continue
-                
-                scan_data["vulns"].append({
-                    "name": name,
-                    "severity": severity,
-                    "target": matched
-                })
-                
-                msg = f"🚨 **VULNERABILIDADE DETECTADA!**\n**Nome:** `{name}`\n**Alvo:** `{matched}`"
-                self.notify_discord(msg, severity)
-            except:
-                continue
+            start_time = time.time()
+            print(f"🚀 Iniciando Ciclo de Recon: {target}")
+            self.notify_discord(f"🚀 **INICIANDO CICLO DE RECON**\nAlvo: `{target}`", "INFO")
+            
+            # --- PASSO 1: RECON (Subfinder & Assetfinder) ---
+            print("🔍 Buscando subdomínios...")
+            subdomains_file = f"{self.results_dir}/subdomains.txt"
+            self.run_command(f"/usr/local/bin/subfinder -d {target} -silent > {subdomains_file}", scan_data=scan_data)
+            self.run_command(f"/usr/local/bin/assetfinder --subs-only {target} >> {subdomains_file}", scan_data=scan_data)
+            self.run_command(f"sort -u {subdomains_file} -o {subdomains_file}", scan_data=scan_data)
+        
+            # --- PASSO 2: PROBING (httpx) ---
+            print("🌐 Validando hosts vivos...")
+            alive_file = f"{self.results_dir}/alive.txt"
+            stdout, _ = self.run_command(f"/usr/local/bin/httpx -l {subdomains_file} -td -status-code -title -silent", output_file=alive_file, scan_data=scan_data)
+        
+            if stdout:
+                for line in stdout.splitlines():
+                    if line.strip() and line not in scan_data["subdomains"]:
+                        scan_data["subdomains"].append(line.strip())
+            
+            self.notify_discord(f"🌐 **Hosts Vivos Encontrados:** `{len(scan_data['subdomains'])}`", "INFO")
 
-        # 4.2 403 Bypass
-        print("🔓 Testando bypass de 403...")
-        with open(alive_file, "r") as f:
-            for line in f:
-                if "403" in line:
-                    url = line.split()[0]
-                    bypasser = Bypass403(url)
-                    results = bypasser.run()
-                    for res in results:
-                        scan_data["vulns"].append({
-                            "name": f"403 Bypass: {res['type']}",
-                            "severity": "HIGH",
-                            "target": url
-                        })
-                        self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`", "HIGH")
+            # --- PASSO 3: DISCOVERY (Katana & Gau) ---
+            if os.path.exists(alive_file) and os.path.getsize(alive_file) > 0:
+                print("📂 Mapeando URLs e endpoints...")
+                urls_file = f"{self.results_dir}/urls.txt"
+                self.run_command(f"/usr/local/bin/katana -l {alive_file} -jc -kf all -d 3 -silent -o {self.results_dir}/katana_urls.txt", scan_data=scan_data)
+                self.run_command(f"/usr/local/bin/gau {target} --subs --o {self.results_dir}/gau_urls.txt", scan_data=scan_data)
+                
+                self.run_command(f"cat {self.results_dir}/katana_urls.txt {self.results_dir}/gau_urls.txt | sort -u > {urls_file}", scan_data=scan_data)
+                
+                if os.path.exists(urls_file):
+                    with open(urls_file, "r") as f:
+                        for i, line in enumerate(f):
+                            if i > 500: break 
+                            url = line.strip()
+                            if url and url not in scan_data["urls"]:
+                                scan_data["urls"].append(url)
 
-        duration = round((time.time() - start_time) / 60, 2)
-        print(f"✅ Finalizado em {duration} min.")
-        self.notify_discord(f"✅ **RECON FINALIZADO**\nAlvo: `{target}`\nDuração: `{duration} min`", "INFO")
+            # --- PASSO 4: VULNERABILIDADES ---
+            if os.path.exists(alive_file) and os.path.getsize(alive_file) > 0:
+                print("🛡️ Analisando vulnerabilidades...")
+                nuclei_cmd = f"/usr/local/bin/nuclei -l {alive_file} -severity low,medium,high,critical -json -silent"
+                stdout, _ = self.run_command(nuclei_cmd, scan_data=scan_data)
+                
+                if stdout:
+                    for line in stdout.splitlines():
+                        try:
+                            vuln = json.loads(line)
+                            info = vuln.get("info", {})
+                            severity = info.get("severity", "INFO").upper()
+                            name = info.get("name")
+                            matched = vuln.get("matched-at")
+                            
+                            if severity == "LOW":
+                                ignore_keywords = ["header", "missing", "cookie", "secure", "httponly", "x-content", "nosniff"]
+                                if any(x in name.lower() for x in ignore_keywords):
+                                    continue
+                            
+                            vuln_entry = {"name": name, "severity": severity, "target": matched}
+                            if vuln_entry not in scan_data["vulns"]:
+                                scan_data["vulns"].append(vuln_entry)
+                                self.notify_discord(f"🚨 **VULNERABILIDADE DETECTADA!**\n**Nome:** `{name}`\n**Alvo:** `{matched}`", severity)
+                        except:
+                            continue
+
+                # 4.2 403 Bypass
+                print("🔓 Testando bypass de 403...")
+                with open(alive_file, "r") as f:
+                    for line in f:
+                        if "403" in line:
+                            url = line.split()[0]
+                            bypasser = Bypass403(url)
+                            results = bypasser.run()
+                            for res in results:
+                                vuln_entry = {"name": f"403 Bypass: {res['type']}", "severity": "HIGH", "target": url}
+                                if vuln_entry not in scan_data["vulns"]:
+                                    scan_data["vulns"].append(vuln_entry)
+                                    self.notify_discord(f"🔓 **403 BYPASS DETECTADO!**\nAlvo: `{url}`\nTécnica: `{res['type']}`", "HIGH")
+
+            duration = round((time.time() - start_time) / 60, 2)
+            print(f"✅ Ciclo finalizado em {duration} min. Reiniciando em 30 segundos...")
+            self.notify_discord(f"✅ **CICLO FINALIZADO**\nAlvo: `{target}`\nDuração: `{duration} min`", "INFO")
+            
+            # Pausa entre ciclos
+            for _ in range(30):
+                if not scan_data.get("running"): break
+                time.sleep(1)

@@ -1,6 +1,16 @@
-# MalScan - Plataforma Avançada de Análise de Malware
+# 🛡️ MalScan
+
+[![Deploy to GitHub Pages](https://github.com/MATREX244/jffgjfdhvb/actions/workflows/deploy.yml/badge.svg)](https://github.com/MATREX244/jffgjfdhvb/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 O **MalScan** é uma plataforma profissional de análise de malware projetada para fornecer detecção profunda, precisa e analítica de ameaças em arquivos binários. Inspirado em ferramentas como o VirusTotal, o MalScan utiliza uma combinação de análise estática de assinaturas, análise de entropia e inteligência artificial para identificar vírus, spywares, RATs, trojans e outras ameaças complexas.
+
+---
+
+## 🌐 Demo Online
+Acesse a interface do projeto aqui: [https://matrex244.github.io/jffgjfdhvb/](https://matrex244.github.io/jffgjfdhvb/)
+
+---
 
 ## 🚀 Funcionalidades
 
